@@ -20,12 +20,44 @@ import static net.debjeetmaj.androidwifiautologin.util.IOUtil.readStream;
  */
 
 public class FortigateAutoAuth extends AutoAuth {
+    String keepAliveUrl = null;
     public FortigateAutoAuth(String authUrl, String username, String password) throws Exception{
         super(authUrl, username, password);
     }
 
+    /* make sure keepaliveUrl is not null */
+    public void keepalive()
+    {
+        HttpsURLConnection httpsConnection  = null;
+        try {
+            httpsConnection = (HttpsURLConnection) (new URL(keepAliveUrl)).openConnection();
+            httpsConnection.setRequestMethod("GET");
+            httpsConnection.setUseCaches(false);
+            httpsConnection.setAllowUserInteraction(false);
+            httpsConnection.setConnectTimeout(100000); // in msecs;
+            httpsConnection.setReadTimeout(100000);
+
+            httpsConnection.connect();
+
+            int responseCode = httpsConnection.getResponseCode();
+            Log.d(LOG_TAG, "keep alive response code : " + responseCode);
+
+            String data = IOUtil.readStream(httpsConnection.getInputStream());
+            Log.d(LOG_TAG, "keep alive data: " + data);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (httpsConnection != null)
+                httpsConnection.disconnect();
+        }
+    }
+
     @Override
     public void authenticate() {
+        if (keepAliveUrl != null) {
+            keepalive();
+            return;
+        }
         String data = null;
         HttpsURLConnection httpsConnection  = null;
         try {
@@ -33,7 +65,7 @@ public class FortigateAutoAuth extends AutoAuth {
             httpsConnection.setRequestMethod("GET");
             httpsConnection.setUseCaches(false);
             httpsConnection.setAllowUserInteraction(false);
-            httpsConnection.setConnectTimeout(100000); // in msecs; 100 secs
+            httpsConnection.setConnectTimeout(100000); // in msecs;
             httpsConnection.setReadTimeout(100000);
 
             httpsConnection.connect();
@@ -93,7 +125,7 @@ public class FortigateAutoAuth extends AutoAuth {
             Log.e(LOG_TAG, "keep alive url not found");
             return;
         }
-        String keepAliveUrl = m.group(1);
+        keepAliveUrl = m.group(1);
         Log.d(LOG_TAG, "keep alive url is " + keepAliveUrl);
     }
 

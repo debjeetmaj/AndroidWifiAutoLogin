@@ -15,6 +15,8 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class AutoLoginService extends IntentService {
     public final static String LOG_TAG = "AutoLoginService";
@@ -28,7 +30,7 @@ public class AutoLoginService extends IntentService {
     public AutoLoginService(){
         super("Auto Login Service");
         Log.w(LOG_TAG,"Service created");
-        AutoLoginService.setState(LoginState.STOPPED);
+//        AutoLoginService.setState(LoginState.STOPPED);
     }
 
     public static LoginState getState() {
@@ -42,7 +44,7 @@ public class AutoLoginService extends IntentService {
     @Override
     protected void onHandleIntent(Intent intent) {
         Log.w(LOG_TAG,"Service Started");
-
+        Log.d(LOG_TAG,AutoLoginService.getState().toString());
         switch (AutoLoginService.getState()){
             case START:
                 startStateHandler();
@@ -148,13 +150,34 @@ public class AutoLoginService extends IntentService {
 
             login();
             AutoLoginService.setState(LoginState.LOGGED_IN);
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                public void run() {
+                    if(AutoLoginService.getState()==LoginState.LOGGED_IN) {
+                        Intent intent = new Intent(getApplicationContext(),AutoLoginService.class);
+                        getApplicationContext().startService(intent);
+                    }
+                }
+            }, 10000);
         } else {
             Log.d(LOG_TAG, "WIFI is OFF");
         }
     }
     private void loggedInStateHandler(){
-        assert autoAuthObj!=null;
-        autoAuthObj.keepAlive();
+        if(autoAuthObj!=null) {
+            autoAuthObj.keepAlive();
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                public void run() {
+                    if(AutoLoginService.getState()==LoginState.LOGGED_IN) {
+                        Intent intent = new Intent(getApplicationContext(),AutoLoginService.class);
+                        getApplicationContext().startService(intent);
+                    }
+                }
+            }, 10000);
+        }
+        else
+            AutoLoginService.setState(LoginState.START);
     }
     private void stoppedStateHandler(){
         wifiConfig=null;

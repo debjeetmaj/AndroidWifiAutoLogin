@@ -96,4 +96,9 @@ public class FortigateAutoAuth extends AutoAuth {
         String keepAliveUrl = m.group(1);
         Log.d(LOG_TAG, "keep alive url is " + keepAliveUrl);
     }
+
+    @Override
+    public void keepAlive() {
+        return;
+    }
 }

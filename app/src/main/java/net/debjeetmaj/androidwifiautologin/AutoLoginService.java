@@ -18,42 +18,41 @@ import java.net.URL;
 
 public class AutoLoginService extends IntentService {
     public final static String LOG_TAG = "AutoLoginService";
-    private WifiConfig wifiConfig = null;
-    private AutoAuth autoAuthObj = null;
+    private static WifiConfig wifiConfig = null;
+    private static AutoAuth autoAuthObj = null;
+    private static LoginState state;
 
 //    private int maxLoginAttempt = 5;
 //    private int loginAttemptInterval = 50000; //msecs
 
     public AutoLoginService(){
         super("Auto Login Service");
+        Log.w(LOG_TAG,"Service created");
+        AutoLoginService.setState(LoginState.STOPPED);
+    }
+
+    public static LoginState getState() {
+        return state;
+    }
+
+    public static void setState(LoginState state) {
+        AutoLoginService.state = state;
     }
 
     @Override
     protected void onHandleIntent(Intent intent) {
         Log.w(LOG_TAG,"Service Started");
-        if(WifiUtil.isWifiConnected(getBaseContext())){
-            Log.i(LOG_TAG,"WIFI is ON");
-            WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
-            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-            String activeWifiName = wifiInfo.getSSID().replace("\"","");
-            Log.i(LOG_TAG,activeWifiName + " WIFI found");
-            for(String ssid : getStoredSSIDs()){
-                Log.i(LOG_TAG, "Checking " + ssid + " config");
-                if(ssid.equals(activeWifiName)){
-                    Log.i(LOG_TAG,"Detected a stored Network "+ssid+" for auto login.");
-                    wifiConfig = WifiConfig.loadWifiConfig(new File(getFilesDir(),ssid+".json"));
-                    break;
-                }
-            }
-            if (wifiConfig == null) {
-                Log.i(LOG_TAG, "No matching configuration found");
-                return;
-            }
 
-            login();
-        }
-        else{
-            Log.d(LOG_TAG,"WIFI is OFF");
+        switch (AutoLoginService.getState()){
+            case START:
+                startStateHandler();
+                break;
+            case LOGGED_IN:
+                loggedInStateHandler();
+                break;
+            case STOPPED:
+                stoppedStateHandler();
+                break;
         }
     }
 
@@ -127,7 +126,40 @@ public class AutoLoginService extends IntentService {
 
         return true;
     }
+    private void startStateHandler(){
+        if (WifiUtil.isWifiConnected(getBaseContext())) {
+            Log.i(LOG_TAG, "WIFI is ON");
+            WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
+            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+            String activeWifiName = wifiInfo.getSSID().replace("\"", "");
+            Log.i(LOG_TAG, activeWifiName + " WIFI found");
+            for (String ssid : getStoredSSIDs()) {
+                Log.i(LOG_TAG, "Checking " + ssid + " config");
+                if (ssid.equals(activeWifiName)) {
+                    Log.i(LOG_TAG, "Detected a stored Network " + ssid + " for auto login.");
+                    wifiConfig = WifiConfig.loadWifiConfig(new File(getFilesDir(), ssid + ".json"));
+                    break;
+                }
+            }
+            if (wifiConfig == null) {
+                Log.i(LOG_TAG, "No matching configuration found");
+                return;
+            }
 
+            login();
+            AutoLoginService.setState(LoginState.LOGGED_IN);
+        } else {
+            Log.d(LOG_TAG, "WIFI is OFF");
+        }
+    }
+    private void loggedInStateHandler(){
+        assert autoAuthObj!=null;
+        autoAuthObj.keepAlive();
+    }
+    private void stoppedStateHandler(){
+        wifiConfig=null;
+        autoAuthObj=null;
+    }
     private void login() {
         if(checkAuthRequired()){
             assert autoAuthObj!=null;

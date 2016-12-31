@@ -98,7 +98,7 @@ public class WifiConfigDialogFragment extends DialogFragment {
 //                    sb.append(temp);
 //                    temp = br.readLine();
 //                }
-                Log.i(LOG_TAG,content);
+//                Log.i(LOG_TAG,content);
                 JSONObject jsonObject = new JSONObject(content);
                 wifiConfig.setUsername(jsonObject.get("username").toString());
                 wifiConfig.setPassword(jsonObject.get("password").toString());

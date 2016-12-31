@@ -26,7 +26,11 @@ public abstract class AutoAuth {
     }
 
     /*
-        * called to authenticate on the network
-        * */
+     * called to authenticate on the network
+     */
     public abstract void authenticate();
+    /*
+    * called after authenticate, to keep the connection authenticated
+    * */
+    public abstract void keepAlive();
 }

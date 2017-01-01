@@ -20,7 +20,7 @@ import static net.debjeetmaj.androidwifiautologin.util.IOUtil.readStream;
  */
 
 public class FortigateAutoAuth extends AutoAuth {
-    String keepAliveUrl = null;
+    private String keepAliveUrl = null;
     public FortigateAutoAuth(String authUrl, String username, String password) throws Exception{
         super(authUrl, username, password);
     }

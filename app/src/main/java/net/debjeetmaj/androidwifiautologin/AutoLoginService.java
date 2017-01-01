@@ -20,6 +20,7 @@ import java.util.TimerTask;
 
 public class AutoLoginService extends IntentService {
     public final static String LOG_TAG = "AutoLoginService";
+    public final int connectionCheckAttempts = 10;
     private static WifiConfig wifiConfig = null;
     private static AutoAuth autoAuthObj = null;
     private static LoginState state;
@@ -44,7 +45,7 @@ public class AutoLoginService extends IntentService {
     @Override
     protected void onHandleIntent(Intent intent) {
         Log.w(LOG_TAG,"Service Started");
-        Log.d(LOG_TAG,AutoLoginService.getState().toString());
+        Log.d(LOG_TAG, "current state: "+AutoLoginService.getState().toString());
         switch (AutoLoginService.getState()){
             case START:
                 startStateHandler();
@@ -64,6 +65,7 @@ public class AutoLoginService extends IntentService {
         super.onDestroy();
     }
 
+    // TODO : move somewhere else
     private String[] getStoredSSIDs(){
         String[] ssids = getFilesDir().list(new FilenameFilter() {
             @Override
@@ -84,57 +86,59 @@ public class AutoLoginService extends IntentService {
     protected boolean checkAuthRequired(){
         HttpURLConnection httpConnection = null;
         String authUrl =  null;
-        try {
-            httpConnection = (HttpURLConnection) (new URL("http://www.bing.com/")).openConnection();
-            httpConnection.setRequestMethod("GET");
-            httpConnection.setRequestProperty("Content-length", "0");
-            httpConnection.setUseCaches(false);
-            httpConnection.setAllowUserInteraction(false);
-            httpConnection.setConnectTimeout(100000); // in msecs; 100 secs
-            httpConnection.setReadTimeout(100000);
+        for (int i = 0; i < connectionCheckAttempts; ++i) {
+            try {
+                httpConnection = (HttpURLConnection) (new URL("http://13.107.21.200")).openConnection();
+                httpConnection.setRequestMethod("GET");
+                httpConnection.setRequestProperty("Content-length", "0");
+                httpConnection.setUseCaches(false);
+//                httpConnection.setAllowUserInteraction(false); // "unused by android"
+                httpConnection.setConnectTimeout(100000); // in msecs; 100 secs
+                httpConnection.setReadTimeout(100000); // do we need it?
 
-            httpConnection.connect();
-            int responseCode = httpConnection.getResponseCode();
-            Log.i(LOG_TAG, "connection response: " + responseCode);
-            // see other, Http status 303, proxy redirect  : 307
-            if (responseCode != HttpURLConnection.HTTP_SEE_OTHER && responseCode != 307) {
-                Log.d(LOG_TAG, "Internet is on");
+                httpConnection.connect();
+                int responseCode = httpConnection.getResponseCode();
+                Log.i(LOG_TAG, "connection response: " + responseCode);
+                // see other, Http status 303, proxy redirect  : 307
+                if (responseCode != HttpURLConnection.HTTP_SEE_OTHER && responseCode != 307) {
+                    Log.d(LOG_TAG, "Internet is on");
+                    return false;
+                }
+
+                authUrl = httpConnection.getHeaderField("Location");
+                Log.i(LOG_TAG, "Auth URL: " + authUrl);
+                //Create autoAuthObj based on authUrl
+                //TODO : generalise the code to make it rule based
+                if (authUrl.contains("/fgtauth?")) {
+                    //Fortigate firewall mechanism
+                    autoAuthObj = new FortigateAutoAuth(authUrl, wifiConfig.getUsername(), wifiConfig.getPassword());
+                } else {
+                    autoAuthObj = new BasicAutoAuth(authUrl, wifiConfig.getUsername(), wifiConfig.getPassword());
+                }
+                return true;
+
+            } catch (IOException e) { // connection failed; will retry
+                Log.e(LOG_TAG, "IOException");
+                e.printStackTrace();
+            } catch (Exception ex) { // something else happened; lets get out
+                ex.printStackTrace();
                 return false;
+            } finally {
+                if (httpConnection != null)
+                    httpConnection.disconnect();
             }
-
-            authUrl = httpConnection.getHeaderField("Location");
-            Log.i(LOG_TAG, "Auth URL: " + authUrl);
-            //Create autoAuthObj based on authUrl
-            //TODO : generalise the code to make it rule based
-            if(authUrl.contains("/fgtauth?")){
-                //Fortigate firewall mechanism
-                autoAuthObj = new FortigateAutoAuth(authUrl,wifiConfig.getUsername(),wifiConfig.getPassword());
-            }
-            else{
-                autoAuthObj = new BasicAutoAuth(authUrl,wifiConfig.getUsername(),wifiConfig.getPassword());
-            }
-
-        } catch (IOException e) {
-            Log.e(LOG_TAG, "IOException");
-            e.printStackTrace();
-            return false;
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return false;
-        } finally {
-            if (httpConnection != null)
-                httpConnection.disconnect();
         }
-
-        return true;
+        return false;
     }
+
     private void startStateHandler(){
         if (WifiUtil.isWifiConnected(getBaseContext())) {
-            Log.i(LOG_TAG, "WIFI is ON");
+            Log.d(LOG_TAG, "WIFI is ON");
             WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
             WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-            String activeWifiName = wifiInfo.getSSID().replace("\"", "");
-            Log.i(LOG_TAG, activeWifiName + " WIFI found");
+            // we are using SSID names as filenames... what if it contains a '/' or '\0'?
+            String activeWifiName = wifiInfo.getSSID().replace("\"", "").replace("/", ""); // moar robust?
+            Log.d(LOG_TAG, activeWifiName + " WIFI found");
             for (String ssid : getStoredSSIDs()) {
                 Log.i(LOG_TAG, "Checking " + ssid + " config");
                 if (ssid.equals(activeWifiName)) {
@@ -149,6 +153,7 @@ public class AutoLoginService extends IntentService {
             }
 
             login();
+            // what if authentication is  *not* required? we should keep retrying then?
             AutoLoginService.setState(LoginState.LOGGED_IN);
             Timer timer = new Timer();
             timer.schedule(new TimerTask() {
@@ -165,6 +170,7 @@ public class AutoLoginService extends IntentService {
     }
     private void loggedInStateHandler(){
         if(autoAuthObj!=null) {
+            Log.d(LOG_TAG, "Keeping alive");
             autoAuthObj.keepAlive();
             Timer timer = new Timer();
             timer.schedule(new TimerTask() {

@@ -58,12 +58,14 @@ public class MainActivity extends AppCompatActivity {
         btnStartService.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AutoLoginService.setState(LoginState.START);
                 startService(intent);
             }
         });
         btnStopService.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AutoLoginService.setState(LoginState.STOPPED);
                 stopService(intent);
             }
         });

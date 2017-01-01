@@ -6,55 +6,56 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.util.Log;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
+import net.debjeetmaj.androidwifiautologin.auth.AutoAuth;
+import net.debjeetmaj.androidwifiautologin.auth.BasicAutoAuth;
+import net.debjeetmaj.androidwifiautologin.auth.FortigateAutoAuth;
+
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.net.ssl.HttpsURLConnection;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class AutoLoginService extends IntentService {
     public final static String LOG_TAG = "AutoLoginService";
-    private WifiConfig wifiConfig = null;
+    public final int connectionCheckAttempts = 10;
+    private static WifiConfig wifiConfig = null;
+    private static AutoAuth autoAuthObj = null;
+    private static LoginState state;
+
+//    private int maxLoginAttempt = 5;
+//    private int loginAttemptInterval = 50000; //msecs
 
     public AutoLoginService(){
         super("Auto Login Service");
+        Log.w(LOG_TAG,"Service created");
+//        AutoLoginService.setState(LoginState.STOPPED);
+    }
+
+    public static LoginState getState() {
+        return state;
+    }
+
+    public static void setState(LoginState state) {
+        AutoLoginService.state = state;
     }
 
     @Override
     protected void onHandleIntent(Intent intent) {
         Log.w(LOG_TAG,"Service Started");
-        if(WifiUtil.isWifiConnected(getBaseContext())){
-            Log.i(LOG_TAG,"WIFI is ON");
-            WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
-            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-            String activeWifiName = wifiInfo.getSSID().replace("\"","");
-            Log.i(LOG_TAG,activeWifiName + " WIFI found");
-            for(String ssid : getStoredSSIDs()){
-                Log.i(LOG_TAG, "Checking " + ssid + " config");
-                if(ssid.equals(activeWifiName)){
-                    Log.d(LOG_TAG,"Detected a stored Network "+ssid+" for auto login.");
-                    wifiConfig = WifiConfig.loadWifiConfig(new File(getFilesDir(),ssid+".json"));
-                    break;
-                }
-            }
-            if (wifiConfig == null) {
-                Log.i(LOG_TAG, "No matching configuration found");
-                return;
-            }
-
-            login();
-        }
-        else{
-            Log.d(LOG_TAG,"WIFI is OFF");
+        Log.d(LOG_TAG, "current state: "+AutoLoginService.getState().toString());
+        switch (AutoLoginService.getState()){
+            case START:
+                startStateHandler();
+                break;
+            case LOGGED_IN:
+                loggedInStateHandler();
+                break;
+            case STOPPED:
+                stoppedStateHandler();
+                break;
         }
     }
 
@@ -64,6 +65,7 @@ public class AutoLoginService extends IntentService {
         super.onDestroy();
     }
 
+    // TODO : move somewhere else
     private String[] getStoredSSIDs(){
         String[] ssids = getFilesDir().list(new FilenameFilter() {
             @Override
@@ -76,124 +78,124 @@ public class AutoLoginService extends IntentService {
         }
         return ssids;
     }
+    /*
+    * checks if internet connection is active,
+    * If auth required sets appropriate AutoAuth object and returns true
+    * else returns false
+    * */
+    protected boolean checkAuthRequired(){
+        HttpURLConnection httpConnection = null;
+        String authUrl =  null;
+        for (int i = 0; i < connectionCheckAttempts; ++i) {
+            try {
+                httpConnection = (HttpURLConnection) (new URL("http://13.107.21.200")).openConnection();
+                httpConnection.setRequestMethod("GET");
+                httpConnection.setRequestProperty("Content-length", "0");
+                httpConnection.setUseCaches(false);
+//                httpConnection.setAllowUserInteraction(false); // "unused by android"
+                httpConnection.setConnectTimeout(100000); // in msecs; 100 secs
+                httpConnection.setReadTimeout(100000); // do we need it?
 
-//    interface StateFunc {
-//        StateFunc func();
-//    }
+                httpConnection.connect();
+                int responseCode = httpConnection.getResponseCode();
+                Log.i(LOG_TAG, "connection response: " + responseCode);
+                // see other, Http status 303, proxy redirect  : 307
+                if (responseCode != HttpURLConnection.HTTP_SEE_OTHER && responseCode != 307) {
+                    Log.d(LOG_TAG, "Internet is on");
+                    return false;
+                }
 
-    String readStream(InputStream is) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(is));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = br.readLine()) != null) {
-            sb.append(line).append("\n");
+                authUrl = httpConnection.getHeaderField("Location");
+                Log.i(LOG_TAG, "Auth URL: " + authUrl);
+                //Create autoAuthObj based on authUrl
+                //TODO : generalise the code to make it rule based
+                if (authUrl.contains("/fgtauth?")) {
+                    //Fortigate firewall mechanism
+                    autoAuthObj = new FortigateAutoAuth(authUrl, wifiConfig.getUsername(), wifiConfig.getPassword());
+                } else {
+                    autoAuthObj = new BasicAutoAuth(authUrl, wifiConfig.getUsername(), wifiConfig.getPassword());
+                }
+                return true;
+
+            } catch (IOException e) { // connection failed; will retry
+                Log.e(LOG_TAG, "IOException");
+                e.printStackTrace();
+            } catch (Exception ex) { // something else happened; lets get out
+                ex.printStackTrace();
+                return false;
+            } finally {
+                if (httpConnection != null)
+                    httpConnection.disconnect();
+            }
         }
-        br.close();
-        return sb.toString();
+        return false;
     }
 
-    private void login() {
-        String authUrl = null;
-        HttpURLConnection httpConnection = null;
-
-        try {
-            httpConnection = (HttpURLConnection) (new URL("http://www.bing.com/")).openConnection();
-            httpConnection.setRequestMethod("GET");
-            httpConnection.setRequestProperty("Content-length", "0");
-            httpConnection.setUseCaches(false);
-            httpConnection.setAllowUserInteraction(false);
-            httpConnection.setConnectTimeout(100000); // in msecs; 100 secs
-            httpConnection.setReadTimeout(100000);
-
-            httpConnection.connect();
-            int responseCode = httpConnection.getResponseCode();
-            Log.i(LOG_TAG, "connection response: " + responseCode);
-
-            if (responseCode != HttpURLConnection.HTTP_SEE_OTHER) {
-                Log.d(LOG_TAG, "Internet is on");
+    private void startStateHandler(){
+        if (WifiUtil.isWifiConnected(getBaseContext())) {
+            Log.d(LOG_TAG, "WIFI is ON");
+            WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
+            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+            // we are using SSID names as filenames... what if it contains a '/' or '\0'?
+            String activeWifiName = wifiInfo.getSSID().replace("\"", "").replace("/", ""); // moar robust?
+            Log.d(LOG_TAG, activeWifiName + " WIFI found");
+            for (String ssid : getStoredSSIDs()) {
+                Log.i(LOG_TAG, "Checking " + ssid + " config");
+                if (ssid.equals(activeWifiName)) {
+                    Log.i(LOG_TAG, "Detected a stored Network " + ssid + " for auto login.");
+                    wifiConfig = WifiConfig.loadWifiConfig(new File(getFilesDir(), ssid + ".json"));
+                    break;
+                }
+            }
+            if (wifiConfig == null) {
+                Log.i(LOG_TAG, "No matching configuration found");
                 return;
             }
 
-            authUrl = httpConnection.getHeaderField("Location");
-            Log.i(LOG_TAG, "Auth URL: " + authUrl);
-        } catch (IOException e) {
-            Log.e(LOG_TAG, "IOException");
-            e.printStackTrace();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        } finally {
-            if (httpConnection != null)
-                httpConnection.disconnect();
+            login();
+            // what if authentication is  *not* required? we should keep retrying then?
+            AutoLoginService.setState(LoginState.LOGGED_IN);
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                public void run() {
+                    if(AutoLoginService.getState()==LoginState.LOGGED_IN) {
+                        Intent intent = new Intent(getApplicationContext(),AutoLoginService.class);
+                        getApplicationContext().startService(intent);
+                    }
+                }
+            }, 10000);
+        } else {
+            Log.d(LOG_TAG, "WIFI is OFF");
         }
-
-        String data = null;
-        HttpsURLConnection httpsConnection  = null;
-        try {
-            httpsConnection = (HttpsURLConnection) (new URL(authUrl)).openConnection();
-            httpsConnection.setRequestMethod("GET");
-            httpsConnection.setUseCaches(false);
-            httpsConnection.setAllowUserInteraction(false);
-            httpsConnection.setConnectTimeout(100000); // in msecs; 100 secs
-            httpsConnection.setReadTimeout(100000);
-
-            httpsConnection.connect();
-            data = readStream(httpsConnection.getInputStream());
-            Log.d(LOG_TAG, "Data:\n" + data);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (httpsConnection != null)
-                httpsConnection.disconnect();
+    }
+    private void loggedInStateHandler(){
+        if(autoAuthObj!=null) {
+            Log.d(LOG_TAG, "Keeping alive");
+            autoAuthObj.keepAlive();
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                public void run() {
+                    if(AutoLoginService.getState()==LoginState.LOGGED_IN) {
+                        Intent intent = new Intent(getApplicationContext(),AutoLoginService.class);
+                        getApplicationContext().startService(intent);
+                    }
+                }
+            }, 10000);
         }
-
-        Pattern p = Pattern.compile("value=\"([0-9a-f]+)\"");
-        assert data != null;
-        Matcher m = p.matcher(data);
-        if (!m.find()) {
-            Log.e(LOG_TAG, "magic string not found");
-            return;
+        else
+            AutoLoginService.setState(LoginState.START);
+    }
+    private void stoppedStateHandler(){
+        wifiConfig=null;
+        autoAuthObj=null;
+    }
+    private void login() {
+        if(checkAuthRequired()){
+            assert autoAuthObj!=null;
+            autoAuthObj.authenticate();
         }
-        String magic = m.group(1);
-        Log.d(LOG_TAG, "magic string is " + magic);
-
-        data = null;
-        httpsConnection = null;
-        try {
-            String encodedData = String.format("username=%s&password=%s&magic=%s&4Tredir=%%2F",
-                    URLEncoder.encode(wifiConfig.getUsername(), "UTF-8"),
-                    URLEncoder.encode(wifiConfig.getPassword(), "UTF-8"),
-                    URLEncoder.encode(magic, "UTF-8"));
-            httpsConnection = (HttpsURLConnection) (new URL(authUrl)).openConnection();
-            httpsConnection.setDoOutput(true);
-            httpsConnection.setRequestMethod("POST");
-            httpsConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-            httpsConnection.setRequestProperty("Content-Length", String.valueOf(encodedData.length()));
-
-            Log.d(LOG_TAG, "encoded Data = " + encodedData);
-            DataOutputStream os = new DataOutputStream(httpsConnection.getOutputStream());
-            os.writeBytes(encodedData);
-            os.flush();
-            os.close();
-
-            int responseCode = httpsConnection.getResponseCode();
-            Log.d(LOG_TAG, "POST response: " + responseCode);
-            data = readStream(httpsConnection.getInputStream());
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (httpsConnection != null)
-                httpsConnection.disconnect();
+        else{
+            Log.i(LOG_TAG,"Authentication not required.");
         }
-
-        p = Pattern.compile("location.href=\"(.+?)\"");
-        assert data != null;
-        m = p.matcher(data);
-        if (!m.find()) {
-            Log.e(LOG_TAG, "keep alive url not found");
-            return;
-        }
-        String keepAliveUrl = m.group(1);
-        Log.d(LOG_TAG, "keep alive url is " + keepAliveUrl);
     }
 }

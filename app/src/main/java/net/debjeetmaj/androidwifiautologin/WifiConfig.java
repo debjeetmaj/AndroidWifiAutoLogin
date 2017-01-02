@@ -9,27 +9,23 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Scanner;
 
-/**
- * Created by hp 1 on 26-12-2016.
- */
-
-public class WifiConfig {
+class WifiConfig {
     private String ssid,username,password;
     private boolean keepAlive;
 
-    public WifiConfig(String ssid) {
+    WifiConfig(String ssid) {
         this.ssid = ssid;
     }
 
-    public String getUsername() {
+    String getUsername() {
         return username;
     }
 
-    public void setUsername(String username) {
+    void setUsername(String username) {
         this.username = username;
     }
 
-    public String getSsid() {
+    String getSsid() {
         return ssid;
     }
 
@@ -37,27 +33,23 @@ public class WifiConfig {
         this.ssid = ssid;
     }
 
-    public String getPassword() {
+    String getPassword() {
         return password;
     }
 
-    public void setPassword(String password) {
+    void setPassword(String password) {
         this.password = password;
     }
 
-    public boolean isKeepAlive() {
+    boolean isKeepAlive() {
         return keepAlive;
     }
 
-    public void setKeepAlive(boolean keepAlive) {
+    void setKeepAlive(boolean keepAlive) {
         this.keepAlive = keepAlive;
     }
 
-    public String toJSONString(){
-//        return "{ \"ssid\" :\""+ ssid + "\", " +
-//                "\"username\" :\""+ username+ "\", " +
-//                "\"password\" :\""+ password+ "\" "
-//                + " }";
+    String toJSONString(){
         JSONObject object = new JSONObject();
         try {
             object.put("ssid", ssid);
@@ -70,22 +62,24 @@ public class WifiConfig {
         return object.toString();
 
     }
-    public static WifiConfig loadWifiConfig(File file){
-        WifiConfig wifiConfig=null;
+
+    static WifiConfig loadWifiConfig(File file){
+        WifiConfig wifiConfig = null;
         try {
             String content = new Scanner(file).useDelimiter("\\Z").next();
             JSONObject jsonObject = new JSONObject(content);
             String ssid = file.getName().substring(0,file.getName().indexOf('.'));
+
             wifiConfig = new WifiConfig(ssid);
             wifiConfig.setUsername(jsonObject.get("username").toString());
             wifiConfig.setPassword(jsonObject.get("password").toString());
-            wifiConfig.setKeepAlive((Boolean) jsonObject.get("keepalive"));
+            wifiConfig.setKeepAlive((Boolean)jsonObject.get("keepalive"));
         }
         catch (IOException ex){
-            Log.e("",ex.getMessage());
+            Log.e("", ex.getMessage());
         }
         catch (Exception ex){
-            Log.e("",ex.getMessage());
+            Log.e("", ex.getMessage());
         }
         return wifiConfig;
     }

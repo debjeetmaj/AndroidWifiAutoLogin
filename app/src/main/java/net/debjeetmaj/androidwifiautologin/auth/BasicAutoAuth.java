@@ -6,23 +6,22 @@ import android.util.Log;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-
-/**
- * Created by Debjeet Majumdar on 29-12-2016.
- */
+import java.util.Arrays;
 
 public class BasicAutoAuth extends AutoAuth {
+    private final static int CONNECTION_CHECK_ATTEMPTS = 10;
+
     public BasicAutoAuth(String authUrl, String username, String password)throws Exception {
         super(authUrl, username, password);
     }
 
     @Override
-    public void authenticate() {
-        Log.i(LOG_TAG,"Attempting to authenticate.");
+    public boolean authenticate() {
+        Log.i(LOG_TAG, "Attempting to authenticate.");
         String data = null;
-        HttpURLConnection httpConnection  = null;
-        int k=2;
-        while(k-->0){
+        HttpURLConnection httpConnection = null;
+
+        for (int i = 0; i < CONNECTION_CHECK_ATTEMPTS; ++i) {
             try {
                 authUrl = authUrl.replace("https://", "http://");
                 byte[] encodedData = Base64.encode((username + ":" + password).getBytes(), Base64.NO_WRAP);
@@ -35,7 +34,7 @@ public class BasicAutoAuth extends AutoAuth {
 //            httpsConnection.setDoOutput(true);
 //                httpConnection.setRequestMethod("GET");
 //                httpConnection.setRequestProperty("WWW-Authenticate", "Basic realm=\"IronPort Web Security Appliance\"");
-                httpConnection.setRequestProperty("Authorization", "Basic " + encodedData);
+                httpConnection.setRequestProperty("Authorization", "Basic " + Arrays.toString(encodedData));
                 httpConnection.connect();
 //            httpsConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 //            httpsConnection.setRequestProperty("Authentication", basicAuth);
@@ -51,6 +50,7 @@ public class BasicAutoAuth extends AutoAuth {
                 Log.d(LOG_TAG, "POST response: " + responseCode);
                 //data = IOUtil.readStream(httpConnection.getInputStream());
                 //Log.d(LOG_TAG,data);
+                return true;
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -58,8 +58,11 @@ public class BasicAutoAuth extends AutoAuth {
                     httpConnection.disconnect();
             }
         }
+    return false;
+}
 
-
+    @Override
+    public int sleepTimeout() {
+        return 0;
     }
-
 }

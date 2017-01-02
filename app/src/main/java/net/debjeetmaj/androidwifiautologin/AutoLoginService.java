@@ -171,7 +171,7 @@ public class AutoLoginService extends IntentService {
     private void loggedInStateHandler(){
         if(autoAuthObj!=null) {
             Log.d(LOG_TAG, "Keeping alive");
-            autoAuthObj.keepAlive();
+            autoAuthObj.authenticate();
             Timer timer = new Timer();
             timer.schedule(new TimerTask() {
                 public void run() {

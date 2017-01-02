@@ -17,11 +17,6 @@ public class BasicAutoAuth extends AutoAuth {
     }
 
     @Override
-    public void keepAlive() {
-        return;
-    }
-
-    @Override
     public void authenticate() {
         Log.i(LOG_TAG,"Attempting to authenticate.");
         String data = null;

@@ -71,8 +71,6 @@ public class MainActivity extends AppCompatActivity {
         });
         listView =(ListView) findViewById(R.id.listView);
         loadSavedNetworks();
-
-
     }
 
     @Override

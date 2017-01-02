@@ -26,8 +26,8 @@ public class FortigateAutoAuth extends AutoAuth {
     }
 
     /* make sure keepaliveUrl is not null */
-    public void keepalive()
-    {
+    void keepAlive() {
+        assert keepAliveUrl != null;
         HttpsURLConnection httpsConnection  = null;
         try {
             httpsConnection = (HttpsURLConnection) (new URL(keepAliveUrl)).openConnection();
@@ -55,7 +55,7 @@ public class FortigateAutoAuth extends AutoAuth {
     @Override
     public void authenticate() {
         if (keepAliveUrl != null) {
-            keepalive();
+            keepAlive();
             return;
         }
         String data = null;
@@ -127,10 +127,5 @@ public class FortigateAutoAuth extends AutoAuth {
         }
         keepAliveUrl = m.group(1);
         Log.d(LOG_TAG, "keep alive url is " + keepAliveUrl);
-    }
-
-    @Override
-    public void keepAlive() {
-        return;
     }
 }

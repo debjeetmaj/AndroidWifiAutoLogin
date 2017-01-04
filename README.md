@@ -7,5 +7,7 @@ A wifi auto login android project.  Works fine in IITK's fortigate login
 - [x] modify the STATE CHANGE BEHAVIOUR
 - [x] add LoggedIn state change Event
 - [x] Handle LoggedIn Code for FortigateAutoAuth
-- [ ] handle ironport/BasicAuth
+- [x] handle ironport/BasicAuth
+- [ ] check response codes in BasicAuth
+- [ ] test BasicAuth w/o proxy
 - [ ] test in more devices and dynamic environments

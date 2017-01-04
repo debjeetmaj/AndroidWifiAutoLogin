@@ -146,5 +146,5 @@ public class FortigateAutoAuth extends AutoAuth {
         return false;
     }
 
-    public int sleepTimeout() { return 2200000; } // 2200 secs
+    public int sleepTimeout() { return 2200; } // 2200 secs TODO change me
 }

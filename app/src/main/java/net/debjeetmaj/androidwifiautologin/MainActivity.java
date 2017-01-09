@@ -71,6 +71,8 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 AutoLoginService.setState(getBaseContext(),LoginState.STOPPED);
                 stopService(intent);
+                // clean up with stopped state
+                startService(intent);
 //                btnActiveWifi.setText(btnActiveWifi.getText()+"\n("+AutoLoginService.getState()+")");
             }
         });

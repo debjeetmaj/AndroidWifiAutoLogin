@@ -12,4 +12,4 @@ A wifi auto login android project.  Works fine in IITK's fortigate login
 - [ ] test BasicAuth w/o proxy
 - [ ] test in more devices and dynamic environments
 - [ ] add configuration/settings in the app
-- [ ] make the app more "useful"
+- [ ] make the app more "useful" (add log view, current state etc.)

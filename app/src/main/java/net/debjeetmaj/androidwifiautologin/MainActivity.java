@@ -24,7 +24,6 @@ public class MainActivity extends AppCompatActivity {
     Button btnActiveWifi,btnStartService,btnStopService;
     ArrayList<String> savedNetworks = null;
     ListView listView;
-    final String SAVED_NETWORKS_FILENAME = "saved_networks.txt";
     final String LOG_TAG = "AndroidAutoLogin";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +40,8 @@ public class MainActivity extends AppCompatActivity {
                     WifiInfo wifiInfo = wifiManager.getConnectionInfo();
                     final String activeWifiName = wifiInfo.getSSID().replace("\"","");
                     btnActiveWifi.setText(activeWifiName);
+                    //debug
+                    btnActiveWifi.setText(btnActiveWifi.getText()+"\n("+AutoLoginService.getState(getBaseContext())+")");
                     //display fragment
                     WifiConfigDialogFragment wifiConfigDialogFragment = new WifiConfigDialogFragment(new WifiConfig(activeWifiName));
                     wifiConfigDialogFragment.show(getFragmentManager(), "Save network");
@@ -49,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
                 }
                 else{
                     btnActiveWifi.setText("Wifi Not Connected !!");
+                    //debug
+                    btnActiveWifi.setText(btnActiveWifi.getText()+"\n("+AutoLoginService.getState(getBaseContext())+")");
                     btnStartService.setVisibility(View.INVISIBLE);
                     btnStopService.setVisibility(View.INVISIBLE);
                 }
@@ -58,15 +61,19 @@ public class MainActivity extends AppCompatActivity {
         btnStartService.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                AutoLoginService.setState(LoginState.START);
+                AutoLoginService.setState(getBaseContext(),LoginState.START);
                 startService(intent);
+//                btnActiveWifi.setText(btnActiveWifi.getText()+"\n("+AutoLoginService.getState()+")");
             }
         });
         btnStopService.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                AutoLoginService.setState(LoginState.STOPPED);
+                AutoLoginService.setState(getBaseContext(),LoginState.STOPPED);
                 stopService(intent);
+                // clean up with stopped state
+                startService(intent);
+//                btnActiveWifi.setText(btnActiveWifi.getText()+"\n("+AutoLoginService.getState()+")");
             }
         });
         listView =(ListView) findViewById(R.id.listView);
@@ -115,9 +122,15 @@ public class MainActivity extends AppCompatActivity {
                 WifiInfo wifiInfo = wifiManager.getConnectionInfo();
                 final String activeWifiName = wifiInfo.getSSID().replace("\"","");
                 btnActiveWifi.setText(activeWifiName);
+                //debug
+                btnActiveWifi.setText(btnActiveWifi.getText()+"\n("+AutoLoginService.getState(getBaseContext())+")");
+
             }
             else{
                 btnActiveWifi.setText("Wifi Not Connected !!");
+                //debug
+                btnActiveWifi.setText(btnActiveWifi.getText()+"\n("+AutoLoginService.getState(getBaseContext())+")");
+
             }}
         catch (Exception ex){
             txtView.setText(ex.getMessage());

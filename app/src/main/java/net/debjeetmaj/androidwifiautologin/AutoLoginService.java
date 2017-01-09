@@ -1,11 +1,7 @@
 package net.debjeetmaj.androidwifiautologin;
 
-import android.app.AlarmManager;
 import android.app.IntentService;
-import android.app.PendingIntent;
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.util.Log;
@@ -19,7 +15,8 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Calendar;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class AutoLoginService extends IntentService {
     public final static String LOG_TAG = "AutoLoginService";
@@ -28,25 +25,20 @@ public class AutoLoginService extends IntentService {
 
     private static WifiConfig wifiConfig = null;
     private static AutoAuth autoAuthObj = null;
-//    private static LoginState state = LoginState.STOPPED;
-    File autoAuthObjFile;
+    private static LoginState state = null;
+
     public AutoLoginService() {
         super("Auto Login Service");
         Log.w(LOG_TAG, "Service created");
 //        AutoLoginService.setState(LoginState.STOPPED);
     }
 
-    public static LoginState getState(Context context) {
-        SharedPreferences sharedPref = context.getSharedPreferences(context.getResources().getString(R.string.autologinservice),Context.MODE_PRIVATE);
-        int state = sharedPref.getInt(context.getResources().getString(R.string.autologinservice),LoginState.STOPPED.ordinal());
-        return LoginState.values()[state];
+    public static LoginState getState() {
+        return state;
     }
 
-    public static void setState(Context context, LoginState state) {
-        SharedPreferences sharedPref = context.getSharedPreferences(context.getResources().getString(R.string.autologinservice),Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPref.edit();
-        editor.putInt(context.getResources().getString(R.string.autologinservice),state.ordinal());
-        editor.commit();
+    public static void setState(LoginState state) {
+        AutoLoginService.state = state;
     }
 
     @Override
@@ -161,11 +153,6 @@ public class AutoLoginService extends IntentService {
                 autoAuthObj != null ? autoAuthObj.sleepTimeout() :
                 // getState() == LoginState.START
                         RETRY_TIMEOUT);
-        Log.i(LOG_TAG,"Scheduling an alarm for "+timeout+" ms.");
-        Intent alarmIntent = new Intent(getBaseContext(), AlarmReciever.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(getBaseContext(), 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-        AlarmManager alarmManager = (AlarmManager)getBaseContext().getSystemService(Context.ALARM_SERVICE);
-        alarmManager.set(AlarmManager.RTC, Calendar.getInstance().getTimeInMillis()+timeout, pendingIntent);
     }
 
     /* startStateHandler: will try to login
@@ -176,8 +163,6 @@ public class AutoLoginService extends IntentService {
             * STOPPED; causes: config not found
      */
     private void startStateHandler() {
-
-        cleanUpLastLoginState();
         if (WifiUtil.isWifiConnected(getBaseContext())) {
             Log.d(LOG_TAG, "WIFI is ON");
 
@@ -199,17 +184,15 @@ public class AutoLoginService extends IntentService {
 
             if (wifiConfig == null) {
                 Log.w(LOG_TAG, "No matching configuration found");
-                AutoLoginService.setState(getBaseContext(),LoginState.STOPPED);
+                AutoLoginService.setState(LoginState.STOPPED);
             } else {
                 if (login()) {
                     Log.i(LOG_TAG, "Logged In");
                     // what if authentication is  *not* required? we should keep retrying then?
-                    AutoLoginService.setState(getBaseContext(),LoginState.LOGGED_IN);
-                    // save the AutoAuth object
-                    AutoAuth.save(autoAuthObjFile,autoAuthObj);
+                    AutoLoginService.setState(LoginState.LOGGED_IN);
                 } else {
                     // login failed but we still have wifi and config, we'll try again
-                    AutoLoginService.setState(getBaseContext(),LoginState.START);
+                    AutoLoginService.setState(LoginState.START);
                 }
             }
 
@@ -218,7 +201,7 @@ public class AutoLoginService extends IntentService {
         } else {
             // :'(
             Log.d(LOG_TAG, "WIFI is OFF");
-            AutoLoginService.setState(getBaseContext(),LoginState.STOPPED);
+            AutoLoginService.setState(LoginState.STOPPED);
         }
     }
 
@@ -230,22 +213,15 @@ public class AutoLoginService extends IntentService {
             * STOPPED; authenticate failed, TODO: should we retry?
      */
     private void loggedInStateHandler() {
-        //check if any stored AutoAuthObj present
-        //if present load it, if not already loaded
-        if(autoAuthObj == null && autoAuthObjFile.exists())
-        {
-            autoAuthObj = AutoAuth.load(autoAuthObjFile);
-        }
         if (autoAuthObj != null) {
             Log.d(LOG_TAG, "Keeping alive");
+
             if (!autoAuthObj.authenticate()) {
-                AutoLoginService.setState(getBaseContext(),LoginState.STOPPED);
+                AutoLoginService.setState(LoginState.STOPPED);
                 Log.w(LOG_TAG, "Keep alive failed");
             }
-            else
-                AutoAuth.save(autoAuthObjFile,autoAuthObj);
         } else
-            AutoLoginService.setState(getBaseContext(),LoginState.START);
+            AutoLoginService.setState(LoginState.START);
 
         scheduleTimer();
     }
@@ -258,19 +234,6 @@ public class AutoLoginService extends IntentService {
     private void stoppedStateHandler() {
         wifiConfig = null;
         autoAuthObj = null;
-        cleanUpLastLoginState();
         stopSelf();
-    }
-    private void cleanUpLastLoginState(){
-        assert autoAuthObjFile!=null;
-        //clean up any residual objects of last loggedIn state
-        if(autoAuthObjFile.exists())
-            autoAuthObjFile.delete();
-        //cancel any residual intents
-        Log.i(LOG_TAG,"Cancel any pending alarms.");
-        Intent alarmIntent = new Intent(getBaseContext(), AlarmReciever.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(getBaseContext(), 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-        AlarmManager alarmManager = (AlarmManager)getBaseContext().getSystemService(Context.ALARM_SERVICE);
-        alarmManager.cancel(pendingIntent);
     }
 }

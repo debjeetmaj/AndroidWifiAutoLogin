@@ -22,8 +22,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <receiver android:name=".AlarmReciever"
-            android:process=":remote"/>
         <receiver
             android:name=".WifiSenseReceiver" >
             <intent-filter>
@@ -32,7 +30,6 @@
                 <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
             </intent-filter>
         </receiver>
-
         <service android:name=".AutoLoginService" />
     </application>
 

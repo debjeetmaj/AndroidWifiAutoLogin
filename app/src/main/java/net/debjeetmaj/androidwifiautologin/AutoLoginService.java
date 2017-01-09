@@ -52,9 +52,10 @@ public class AutoLoginService extends IntentService {
     @Override
     protected void onHandleIntent(Intent intent) {
         Log.i(LOG_TAG, "Service Started");
-        Log.i(LOG_TAG, "current state: " + AutoLoginService.getState(getBaseContext()).toString());
+        LoginState currentState = AutoLoginService.getState(getBaseContext());
+        Log.i(LOG_TAG, "current state: " + currentState.toString());
         autoAuthObjFile = new File(getFilesDir()+getResources().getString(R.string.autoAuthObjFile));
-        switch (AutoLoginService.getState(getBaseContext())) {
+        switch (currentState) {
             case START:
                 startStateHandler();
                 break;
@@ -155,7 +156,7 @@ public class AutoLoginService extends IntentService {
 
     /* schedule a job for later */
     void scheduleTimer() {
-        int timeout = (getState(getBaseContext()) == LoginState.STOPPED ? 10 :
+        int timeout = (getState(getBaseContext()) == LoginState.STOPPED ? 0 :
                 // getState() == LoginState.LOGGED_IN
                 autoAuthObj != null ? autoAuthObj.sleepTimeout() :
                 // getState() == LoginState.START

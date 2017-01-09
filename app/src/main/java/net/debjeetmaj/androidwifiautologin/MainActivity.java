@@ -15,8 +15,6 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.FilenameFilter;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
@@ -101,23 +99,15 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void loadSavedNetworks(){
-        String[] ssids = getFilesDir().list(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String filename) {
-                return filename.endsWith(".json");
-            }
-        });
-        for(int i=0;i<ssids.length;i++){
-            ssids[i]=ssids[i].substring(0,ssids[i].indexOf('.'));
-        }
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
-                            R.layout.wifi_item, R.id.lblSSID, ssids);
+        String[] ssids = WifiConfig.getStoredSSIDs(getBaseContext());
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                R.layout.wifi_item, R.id.lblSSID, ssids);
         listView.setAdapter(adapter);
     }
     private void checkWifiConnection(){
         try{
             if(isWifiConnected()){
-                Toast.makeText(getApplicationContext(), "Wifi is connected", Toast.LENGTH_SHORT);
+                Toast.makeText(getApplicationContext(), "Wifi is connected", Toast.LENGTH_SHORT).show();
                 WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
                 WifiInfo wifiInfo = wifiManager.getConnectionInfo();
                 final String activeWifiName = wifiInfo.getSSID().replace("\"","");

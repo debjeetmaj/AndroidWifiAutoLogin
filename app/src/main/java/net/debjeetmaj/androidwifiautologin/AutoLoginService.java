@@ -15,7 +15,6 @@ import net.debjeetmaj.androidwifiautologin.auth.BasicAutoAuth;
 import net.debjeetmaj.androidwifiautologin.auth.FortigateAutoAuth;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -73,19 +72,6 @@ public class AutoLoginService extends IntentService {
     public void onDestroy() {
         Log.i(LOG_TAG, "Service Stopped");
         super.onDestroy();
-    }
-
-    private String[] getStoredSSIDs() {
-        String[] ssids = getFilesDir().list(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String filename) {
-                return filename.endsWith(".json");
-            }
-        });
-        for (int i = 0; i < ssids.length; i++) {
-            ssids[i] = ssids[i].substring(0, ssids[i].indexOf('.'));
-        }
-        return ssids;
     }
 
     //Create autoAuthObj based on authUrl
@@ -158,10 +144,10 @@ public class AutoLoginService extends IntentService {
 
     /* schedule a job for later */
     void scheduleTimer() {
-        int timeout = (getState(getBaseContext()) == LoginState.STOPPED ? 0 : // stop everything ASAP
-                // getState() == LoginState.LOGGED_IN
-                autoAuthObj != null ? autoAuthObj.sleepTimeout() :
-                // getState() == LoginState.START
+        LoginState currentState = getState(getBaseContext());
+        int timeout = (currentState == LoginState.STOPPED ? 0 : // stop everything ASAP
+                currentState == LoginState.LOGGED_IN && autoAuthObj != null ? autoAuthObj.sleepTimeout() :
+                // currentState == LoginState.START
                         RETRY_TIMEOUT);
         Log.i(LOG_TAG,"Scheduling an alarm for "+timeout+" ms.");
 
@@ -185,16 +171,15 @@ public class AutoLoginService extends IntentService {
 
             WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
             WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-            // TODO we are using SSID names as filenames... what if it contains a '/' or '\0'?
-            String activeWifiName = wifiInfo.getSSID().replace("\"", "").replace("/", ""); // moar robust?
+            String activeWifiName = wifiInfo.getSSID().replace("\"", "");
 
             Log.d(LOG_TAG, activeWifiName + " WIFI found");
 
-            for (String ssid : getStoredSSIDs()) {
+            for (String ssid : WifiConfig.getStoredSSIDs(getBaseContext())) {
                 Log.d(LOG_TAG, "Checking " + ssid + " config");
                 if (ssid.equals(activeWifiName)) {
                     Log.d(LOG_TAG, "Detected a stored Network '" + ssid + "' for auto login.");
-                    wifiConfig = WifiConfig.loadWifiConfig(new File(getFilesDir(), ssid + ".json"));
+                    wifiConfig = WifiConfig.loadWifiConfig(new File (getFilesDir(), WifiConfig.getFileName(ssid)));
                     break;
                 }
             }

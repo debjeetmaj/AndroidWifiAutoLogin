@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.util.Scanner;
 
 class WifiConfig {
+    static String LOG_TAG = "WifiConfig";
+    
     private String ssid,username,password;
     private boolean keepAlive;
 
@@ -29,6 +31,7 @@ class WifiConfig {
         return ssid;
     }
 
+    // dead code?
     public void setSsid(String ssid) {
         this.ssid = ssid;
     }
@@ -60,7 +63,6 @@ class WifiConfig {
             e.printStackTrace();
         }
         return object.toString();
-
     }
 
     static WifiConfig loadWifiConfig(File file){
@@ -68,7 +70,7 @@ class WifiConfig {
         try {
             String content = new Scanner(file).useDelimiter("\\Z").next();
             JSONObject jsonObject = new JSONObject(content);
-            String ssid = file.getName().substring(0,file.getName().indexOf('.'));
+            String ssid = file.getName().substring(0,file.getName().lastIndexOf('.'));
 
             wifiConfig = new WifiConfig(ssid);
             wifiConfig.setUsername(jsonObject.get("username").toString());
@@ -76,10 +78,10 @@ class WifiConfig {
             wifiConfig.setKeepAlive((Boolean)jsonObject.get("keepalive"));
         }
         catch (IOException ex){
-            Log.e("", ex.getMessage());
+            Log.e(LOG_TAG, ex.getMessage());
         }
         catch (Exception ex){
-            Log.e("", ex.getMessage());
+            Log.e(LOG_TAG, ex.getMessage());
         }
         return wifiConfig;
     }

@@ -18,13 +18,14 @@ public class WifiSenseReceiver extends BroadcastReceiver {
             NetworkInfo netInfo = conMan.getActiveNetworkInfo();
             if (netInfo != null && netInfo.getType() == ConnectivityManager.TYPE_WIFI) {
                 Log.d(LOG_TAG, "Have Wifi Connection");
-                AutoLoginService.setState(context,LoginState.START);
+                AutoLoginService.setState(LoginState.START);
                 context.startService(serviceIntent);
+
             }
             else {
                 Log.d(LOG_TAG, "Don't have Wifi Connection");
                 //destroy the on going service if present
-                AutoLoginService.setState(context,LoginState.STOPPED);
+                AutoLoginService.setState(LoginState.STOPPED);
                 context.stopService(serviceIntent);
             }
         }

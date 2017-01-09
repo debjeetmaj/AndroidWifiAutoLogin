@@ -1,6 +1,3 @@
 <resources>
     <string name="app_name">Android Wifi Auto Login</string>
-    <string name="autologinservice">net.debjeetmaj.androidwifiautologin.AutoLoginService</string>
-    <string name="state">STATE</string>
-    <string name="autoAuthObjFile">autoAuthObjFile.ser</string>
 </resources>

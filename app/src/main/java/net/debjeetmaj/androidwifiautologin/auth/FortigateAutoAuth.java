@@ -26,7 +26,6 @@ public class FortigateAutoAuth extends AutoAuth {
     /* make sure keepaliveUrl is not null */
     private boolean keepAlive() {
         assert keepAliveUrl != null;
-        Log.d(LOG_TAG,"keep alive url is "+keepAliveUrl);
         HttpsURLConnection httpsConnection  = null;
         try {
             httpsConnection = (HttpsURLConnection) (new URL(keepAliveUrl)).openConnection();
@@ -147,5 +146,5 @@ public class FortigateAutoAuth extends AutoAuth {
         return false;
     }
 
-    public int sleepTimeout() { return 2200; } // 2200 secs TODO Make it configurable
+    public int sleepTimeout() { return 2200; } // 2200 secs TODO change me
 }

@@ -13,3 +13,6 @@ A wifi auto login android project.  Works fine in IITK's fortigate login
 - [ ] test in more devices and dynamic environments
 - [ ] add configuration/settings in the app
 - [ ] make the app more "useful" (add log view, current state etc.)
+- [ ] Disabled state where the service does not respond to any connection changes
+- [ ] Monitor activity feature, that monitors the Service activities
+

@@ -23,7 +23,6 @@ public class WifiSenseReceiver extends BroadcastReceiver {
             }
             else {
                 Log.d(LOG_TAG, "Don't have Wifi Connection");
-                //destroy the on going service if present
                 AutoLoginService.setState(context,LoginState.STOPPED);
                 context.stopService(serviceIntent);
             }

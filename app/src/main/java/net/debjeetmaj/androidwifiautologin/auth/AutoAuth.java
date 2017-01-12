@@ -10,12 +10,13 @@ import java.io.Serializable;
 
 public abstract class AutoAuth implements Serializable{
     static final String LOG_TAG = "AutoAuthObj";
-    public static final int CONNECTION_TIMEOUT = 100000; // msecs
+    public static final int CONNECTION_TIMEOUT = 15000; // 15 secs
+    final static int CONNECTION_CHECK_ATTEMPTS = 10;
 
     String authUrl;
     String username,password;
 
-    AutoAuth(String authUrl, String username, String password)throws Exception {
+    AutoAuth(String authUrl, String username, String password) throws Exception {
         if(authUrl == null || authUrl.isEmpty())
             throw new Exception("Authentication URL cannot be empty or null");
 
@@ -24,55 +25,38 @@ public abstract class AutoAuth implements Serializable{
         this.password = password;
     }
 
-    /*
-     * called to authenticate on the network
-     */
+    /* called to authenticate on the network */
     public abstract boolean authenticate();
 
-    /*
-     * time to sleep between two calls to authenticate
-     */
+    /* time to sleep between two calls to authenticate */
     public abstract int sleepTimeout();
 
-    /*
-    * Load an AutoAuth object from file
-    * */
+    /* Load an AutoAuth object from file */
     public static AutoAuth load(File file){
         FileInputStream fin = null;
         ObjectInputStream oin = null;
         AutoAuth obj = null;
-        try{
+
+        try {
             fin = new FileInputStream(file);
             oin = new ObjectInputStream(fin);
             obj = (AutoAuth)oin.readObject();
-        }
-        catch (Exception ex){
+        } catch (Exception ex){
             ex.printStackTrace();
         }
         finally {
-            if (fin != null) {
-                try {
-                    fin.close();
-                } catch (IOException e) {
+            try {
+                if (fin != null) fin.close();
+                if (oin != null) oin.close();
+            } catch (IOException e) {
                     e.printStackTrace();
-                }
-            }
-
-            if (oin != null) {
-                try {
-                    oin.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             }
         }
         return obj;
     }
 
-    /*
-    * Save an AutoAuth object to file
-    * */
-    public static void save(File file,AutoAuth obj){
+    /* Save an AutoAuth object to file */
+    public static void save(File file, AutoAuth obj){
         FileOutputStream fout = null;
         ObjectOutputStream oos = null;
 
@@ -83,21 +67,11 @@ public abstract class AutoAuth implements Serializable{
         } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
-
-            if (fout != null) {
-                try {
-                    fout.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            if (oos != null) {
-                try {
-                    oos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+            try {
+                if (fout != null) fout.close();
+                if (oos != null) oos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }

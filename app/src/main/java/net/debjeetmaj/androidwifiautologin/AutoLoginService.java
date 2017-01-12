@@ -15,7 +15,6 @@ import net.debjeetmaj.androidwifiautologin.auth.BasicAutoAuth;
 import net.debjeetmaj.androidwifiautologin.auth.FortigateAutoAuth;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -28,12 +27,11 @@ public class AutoLoginService extends IntentService {
 
     private static WifiConfig wifiConfig = null;
     private static AutoAuth autoAuthObj = null;
-//    private static LoginState state = LoginState.STOPPED;
     File autoAuthObjFile;
+
     public AutoLoginService() {
         super("Auto Login Service");
         Log.w(LOG_TAG, "Service created");
-//        AutoLoginService.setState(LoginState.STOPPED);
     }
 
     public static LoginState getState(Context context) {
@@ -46,15 +44,17 @@ public class AutoLoginService extends IntentService {
         SharedPreferences sharedPref = context.getSharedPreferences(context.getResources().getString(R.string.autologinservice),Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPref.edit();
         editor.putInt(context.getResources().getString(R.string.autologinservice),state.ordinal());
-        editor.commit();
+        editor.apply();
     }
 
     @Override
     protected void onHandleIntent(Intent intent) {
         Log.i(LOG_TAG, "Service Started");
+
         LoginState currentState = AutoLoginService.getState(getBaseContext());
         Log.i(LOG_TAG, "current state: " + currentState.toString());
         autoAuthObjFile = new File(getFilesDir()+getResources().getString(R.string.autoAuthObjFile));
+
         switch (currentState) {
             case START:
                 startStateHandler();
@@ -74,23 +74,9 @@ public class AutoLoginService extends IntentService {
         super.onDestroy();
     }
 
-    private String[] getStoredSSIDs() {
-        String[] ssids = getFilesDir().list(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String filename) {
-                return filename.endsWith(".json");
-            }
-        });
-        for (int i = 0; i < ssids.length; i++) {
-            ssids[i] = ssids[i].substring(0, ssids[i].indexOf('.'));
-        }
-        return ssids;
-    }
-
     //Create autoAuthObj based on authUrl
     private AutoAuth createAuthObj(String authUrl) throws Exception {
-        //TODO : generalise the code to make it rule based
-        if (authUrl.contains("/fgtauth?")) {
+        if (authUrl.contains("/fgtauth?")) { // HACK
             //Fortigate firewall mechanism
             return new FortigateAutoAuth(authUrl, wifiConfig.getUsername(), wifiConfig.getPassword());
         } else {
@@ -109,6 +95,7 @@ public class AutoLoginService extends IntentService {
             try {
                 // using bing.com's IP as it doesn't use https
                 // TODO: switch to something else as it may change soon(TM) (looking at samik)
+                // TODO: add this to config
                 httpConnection = (HttpURLConnection) (new URL("http://13.107.21.200")).openConnection();
                 httpConnection.setRequestMethod("GET");
                 httpConnection.setRequestProperty("Content-length", "0");
@@ -118,22 +105,22 @@ public class AutoLoginService extends IntentService {
 
                 httpConnection.connect();
                 int responseCode = httpConnection.getResponseCode();
-                Log.i(LOG_TAG, "checkAuth: connection response: " + responseCode);
-                // see other, Http status 303, proxy redirect  : 307
+                Log.d(LOG_TAG, "checkAuth: connection response: " + responseCode);
+                // see other: 303, temporary redirect: 307
                 if (responseCode != HttpURLConnection.HTTP_SEE_OTHER && responseCode != 307) {
                     Log.d(LOG_TAG, "checkAuth: Internet is on");
                     return false;
                 }
 
                 String authUrl = httpConnection.getHeaderField("Location");
-                Log.i(LOG_TAG, "checkAuth: Auth URL: " + authUrl);
+                Log.d(LOG_TAG, "checkAuth: Auth URL: " + authUrl);
                 autoAuthObj = createAuthObj(authUrl);
                 return true;
 
             } catch (IOException e) { // connection failed; will retry
                 Log.e(LOG_TAG, "IOException");
                 e.printStackTrace();
-            } catch (Exception ex) { // something else happened; lets get out
+            } catch (Exception ex) { // something else happened; let's get out
                 ex.printStackTrace();
                 return false;
             } finally {
@@ -144,6 +131,7 @@ public class AutoLoginService extends IntentService {
         return false;
     }
 
+    /* try logging-in, return true if successful else false */
     private boolean login() {
         if (checkAuthRequired()) {
             assert autoAuthObj != null;
@@ -156,12 +144,13 @@ public class AutoLoginService extends IntentService {
 
     /* schedule a job for later */
     void scheduleTimer() {
-        int timeout = (getState(getBaseContext()) == LoginState.STOPPED ? 0 :
-                // getState() == LoginState.LOGGED_IN
-                autoAuthObj != null ? autoAuthObj.sleepTimeout() :
-                // getState() == LoginState.START
+        LoginState currentState = getState(getBaseContext());
+        int timeout = (currentState == LoginState.STOPPED ? 0 : // stop everything ASAP
+                currentState == LoginState.LOGGED_IN && autoAuthObj != null ? autoAuthObj.sleepTimeout() :
+                // currentState == LoginState.START
                         RETRY_TIMEOUT);
         Log.i(LOG_TAG,"Scheduling an alarm for "+timeout+" ms.");
+
         Intent alarmIntent = new Intent(getBaseContext(), AlarmReciever.class);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(getBaseContext(), 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         AlarmManager alarmManager = (AlarmManager)getBaseContext().getSystemService(Context.ALARM_SERVICE);
@@ -171,28 +160,26 @@ public class AutoLoginService extends IntentService {
     /* startStateHandler: will try to login
         Initial state: START
         possible transitions:
-            * START: already logged-in, n/w failed, a timer will be scheduled
-            * LOGGED_IN; just logged-in,, a timer will be scheduled
-            * STOPPED; causes: config not found
+            * START: already logged-in, n/w failed; an alarm will be scheduled
+            * LOGGED_IN: just logged-in; an alarm will be scheduled
+            * STOPPED: config not found, no wifi
      */
     private void startStateHandler() {
-
-        cleanUpLastLoginState();
+        cleanUpLastLoginState(); // in case we never reached STOPPED last time
         if (WifiUtil.isWifiConnected(getBaseContext())) {
             Log.d(LOG_TAG, "WIFI is ON");
 
             WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
             WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-            // TODO we are using SSID names as filenames... what if it contains a '/' or '\0'?
-            String activeWifiName = wifiInfo.getSSID().replace("\"", "").replace("/", ""); // moar robust?
+            String activeWifiName = wifiInfo.getSSID().replace("\"", "");
 
             Log.d(LOG_TAG, activeWifiName + " WIFI found");
 
-            for (String ssid : getStoredSSIDs()) {
-                Log.i(LOG_TAG, "Checking " + ssid + " config");
+            for (String ssid : WifiConfig.getStoredSSIDs(getFilesDir())) {
+                Log.d(LOG_TAG, "Checking " + ssid + " config");
                 if (ssid.equals(activeWifiName)) {
-                    Log.i(LOG_TAG, "Detected a stored Network '" + ssid + "' for auto login.");
-                    wifiConfig = WifiConfig.loadWifiConfig(new File(getFilesDir(), ssid + ".json"));
+                    Log.d(LOG_TAG, "Detected a stored Network '" + ssid + "' for auto login.");
+                    wifiConfig = WifiConfig.loadWifiConfig(new File (getFilesDir(), WifiConfig.getFileName(ssid)));
                     break;
                 }
             }
@@ -203,7 +190,6 @@ public class AutoLoginService extends IntentService {
             } else {
                 if (login()) {
                     Log.i(LOG_TAG, "Logged In");
-                    // what if authentication is  *not* required? we should keep retrying then?
                     AutoLoginService.setState(getBaseContext(),LoginState.LOGGED_IN);
                     // save the AutoAuth object
                     AutoAuth.save(autoAuthObjFile,autoAuthObj);
@@ -225,25 +211,26 @@ public class AutoLoginService extends IntentService {
     /* loggedInStateHandler: have autoAuthObj, will keep-alive
         Initial state: LOGGED_IN
         possible transitions:
-            * START: autoAuthObj was not found, a timer will be scheduled
-            * LOGGED_IN; authenticate was successful, a timer will be scheduled
-            * STOPPED; authenticate failed, TODO: should we retry?
+            * START: autoAuthObj was not found; an alarm will be scheduled
+                (this can happen if our process gets killed and we lose our object file);
+            * LOGGED_IN: authentication was successful; an alarm will be scheduled
+            * STOPPED: authentication failed, TODO: should we retry?
      */
     private void loggedInStateHandler() {
-        //check if any stored AutoAuthObj present
-        //if present load it, if not already loaded
+        /* check if any stored AutoAuthObj present
+           if present load it, if not already loaded
+         */
         if(autoAuthObj == null && autoAuthObjFile.exists())
-        {
             autoAuthObj = AutoAuth.load(autoAuthObjFile);
-        }
+
         if (autoAuthObj != null) {
-            Log.d(LOG_TAG, "Keeping alive");
             if (!autoAuthObj.authenticate()) {
                 AutoLoginService.setState(getBaseContext(),LoginState.STOPPED);
                 Log.w(LOG_TAG, "Keep alive failed");
+            } else {
+                Log.i(LOG_TAG, "Keeping alive");
+                AutoAuth.save(autoAuthObjFile, autoAuthObj);
             }
-            else
-                AutoAuth.save(autoAuthObjFile,autoAuthObj);
         } else
             AutoLoginService.setState(getBaseContext(),LoginState.START);
 
@@ -253,21 +240,23 @@ public class AutoLoginService extends IntentService {
     /* stoppedStateHandler: destroy everything
         Initial state: STOPPED
         possible transitions:
-            * STOPPED; will kill the service
+            * STOPPED: will kill the service
      */
     private void stoppedStateHandler() {
         wifiConfig = null;
         autoAuthObj = null;
         cleanUpLastLoginState();
+        autoAuthObj = null;
         stopSelf();
     }
+
     private void cleanUpLastLoginState(){
-        assert autoAuthObjFile!=null;
+        assert autoAuthObjFile != null;
         //clean up any residual objects of last loggedIn state
-        if(autoAuthObjFile.exists())
+        if (autoAuthObjFile.exists())
             autoAuthObjFile.delete();
+
         //cancel any residual intents
-        Log.i(LOG_TAG,"Cancel any pending alarms.");
         Intent alarmIntent = new Intent(getBaseContext(), AlarmReciever.class);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(getBaseContext(), 0, alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         AlarmManager alarmManager = (AlarmManager)getBaseContext().getSystemService(Context.ALARM_SERVICE);

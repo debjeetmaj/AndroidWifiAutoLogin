@@ -15,18 +15,16 @@ import javax.net.ssl.HttpsURLConnection;
 import static net.debjeetmaj.androidwifiautologin.util.IOUtil.readStream;
 
 public class FortigateAutoAuth extends AutoAuth {
-    private final static int CONNECTION_CHECK_ATTEMPTS = 10;
-
     private String keepAliveUrl = null;
 
-    public FortigateAutoAuth(String authUrl, String username, String password) throws Exception{
+    public FortigateAutoAuth(String authUrl, String username, String password) throws Exception {
         super(authUrl, username, password);
     }
 
     /* make sure keepaliveUrl is not null */
     private boolean keepAlive() {
         assert keepAliveUrl != null;
-        Log.d(LOG_TAG,"keep alive url is "+keepAliveUrl);
+        Log.d(LOG_TAG, "keep alive url is "+keepAliveUrl);
         HttpsURLConnection httpsConnection  = null;
         try {
             httpsConnection = (HttpsURLConnection) (new URL(keepAliveUrl)).openConnection();
@@ -37,13 +35,13 @@ public class FortigateAutoAuth extends AutoAuth {
             httpsConnection.setReadTimeout(CONNECTION_TIMEOUT);
 
             httpsConnection.connect();
-
             int responseCode = httpsConnection.getResponseCode();
-            Log.i(LOG_TAG, "keep alive: response code: " + responseCode);
+            Log.d(LOG_TAG, "keep alive: response code: " + responseCode);
 
             if (responseCode != HttpURLConnection.HTTP_OK) {
                 String data = readStream(httpsConnection.getInputStream());
                 Log.d(LOG_TAG, "keep alive: data: " + data);
+                return false;
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -60,9 +58,8 @@ public class FortigateAutoAuth extends AutoAuth {
      * return true if authentication was successful
      */
     public boolean authenticate() {
-        if (keepAliveUrl != null) {
+        if (keepAliveUrl != null)
             return keepAlive();
-        }
 
         String data = null;
         HttpsURLConnection httpsConnection = null;
@@ -77,7 +74,7 @@ public class FortigateAutoAuth extends AutoAuth {
 
                 httpsConnection.connect();
                 data = readStream(httpsConnection.getInputStream());
-//            Log.d(LOG_TAG, "authenticate: response data: " + data);
+//                Log.d(LOG_TAG, "authenticate: response data: " + data);
             } catch (IOException e) {
                 e.printStackTrace();
                 continue;
@@ -90,7 +87,7 @@ public class FortigateAutoAuth extends AutoAuth {
             }
 
             Pattern p = Pattern.compile("value=\"([0-9a-f]+)\"");
-            assert data != null;
+//            assert data != null;
             Matcher m = p.matcher(data);
             if (!m.find()) {
                 Log.e(LOG_TAG, "authenticate: magic string not found");
@@ -112,7 +109,7 @@ public class FortigateAutoAuth extends AutoAuth {
                 httpsConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
                 httpsConnection.setRequestProperty("Content-Length", String.valueOf(encodedData.length()));
 
-//            Log.d(LOG_TAG, "authenticate: encoded data: " + encodedData);
+//                Log.d(LOG_TAG, "authenticate: encoded data: " + encodedData);
                 DataOutputStream os = new DataOutputStream(httpsConnection.getOutputStream());
                 os.writeBytes(encodedData);
                 os.flush();
@@ -137,15 +134,15 @@ public class FortigateAutoAuth extends AutoAuth {
             assert data != null;
             m = p.matcher(data);
             if (!m.find()) {
-                Log.e(LOG_TAG, "keep alive url not found");
+                Log.e(LOG_TAG, "authenticate: keep alive url not found");
                 return false;
             }
             keepAliveUrl = m.group(1);
-            Log.d(LOG_TAG, "keep alive url is " + keepAliveUrl);
+            Log.d(LOG_TAG, "authenticate: keep alive url is " + keepAliveUrl);
             return true;
         }
         return false;
     }
 
-    public int sleepTimeout() { return 2200; } // 2200 secs TODO Make it configurable
+    public int sleepTimeout() { return 2200000; } // 2200 secs TODO Make it configurable
 }

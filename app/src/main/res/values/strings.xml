@@ -3,4 +3,6 @@
     <string name="autologinservice">net.debjeetmaj.androidwifiautologin.AutoLoginService</string>
     <string name="state">STATE</string>
     <string name="autoAuthObjFile">autoAuthObjFile.ser</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_monitor">Monitor</string>
 </resources>

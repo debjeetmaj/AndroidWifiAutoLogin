@@ -19,7 +19,7 @@ public class WifiConfigDialogFragment extends DialogFragment {
     EditText txtUserName,txtPassword;
     CheckBox chkKeepAlive;
 
-    final String LOG_TAG = "AndroidAutoLogin";
+    static final String LOG_TAG = "AndroidAutoLogin";
     public WifiConfigDialogFragment(){
         super();
     }

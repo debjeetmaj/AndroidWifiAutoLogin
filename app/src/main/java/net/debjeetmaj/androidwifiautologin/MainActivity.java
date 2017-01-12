@@ -99,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void loadSavedNetworks(){
-        String[] ssids = WifiConfig.getStoredSSIDs(getBaseContext());
+        String[] ssids = WifiConfig.getStoredSSIDs(getFilesDir());
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
                 R.layout.wifi_item, R.id.lblSSID, ssids);
         listView.setAdapter(adapter);

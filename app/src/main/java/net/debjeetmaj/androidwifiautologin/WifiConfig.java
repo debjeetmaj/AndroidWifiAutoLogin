@@ -1,6 +1,5 @@
 package net.debjeetmaj.androidwifiautologin;
 
-import android.content.Context;
 import android.util.Log;
 
 import org.json.JSONException;
@@ -14,7 +13,7 @@ import java.security.MessageDigest;
 import java.util.Scanner;
 
 class WifiConfig {
-    private static String LOG_TAG = "WifiConfig";
+    private static final String LOG_TAG = "WifiConfig";
     
     private String ssid,username,password;
     private boolean keepAlive;
@@ -87,10 +86,9 @@ class WifiConfig {
     }
 
     private static String readSSID(File file) {
-        String content;
         try {
-            content = new Scanner(file).useDelimiter("\\Z").next();
-            JSONObject jsonObject = new JSONObject(content);
+            final String content = new Scanner(file).useDelimiter("\\Z").next();
+            final JSONObject jsonObject = new JSONObject(content);
             return jsonObject.get("ssid").toString();
         } catch (FileNotFoundException | JSONException e) {
             e.printStackTrace();
@@ -98,8 +96,8 @@ class WifiConfig {
         }
     }
 
-    static String[] getStoredSSIDs(Context ctx) {
-        final String[] fnames = ctx.getFilesDir().list(new FilenameFilter() {
+    static String[] getStoredSSIDs(File dir) {
+        final String[] fnames = dir.list(new FilenameFilter() {
             @Override
             public boolean accept(File dir, String filename) {
                 return filename.endsWith(".json");
@@ -107,7 +105,7 @@ class WifiConfig {
         });
         String ssids[] = new String[fnames.length];
         for (int i = 0; i < ssids.length; i++)
-            ssids[i] = readSSID(new File(ctx.getFilesDir(), fnames[i]));
+            ssids[i] = readSSID(new File(dir, fnames[i]));
 
         return ssids;
     }
@@ -115,8 +113,8 @@ class WifiConfig {
     static WifiConfig loadWifiConfig(File file){
         WifiConfig wifiConfig = null;
         try {
-            String content = new Scanner(file).useDelimiter("\\Z").next();
-            JSONObject jsonObject = new JSONObject(content);
+            final String content = new Scanner(file).useDelimiter("\\Z").next();
+            final JSONObject jsonObject = new JSONObject(content);
             String ssid = jsonObject.get("ssid").toString();
 
             wifiConfig = new WifiConfig(ssid);

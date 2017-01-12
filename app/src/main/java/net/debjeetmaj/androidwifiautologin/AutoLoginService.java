@@ -175,7 +175,7 @@ public class AutoLoginService extends IntentService {
 
             Log.d(LOG_TAG, activeWifiName + " WIFI found");
 
-            for (String ssid : WifiConfig.getStoredSSIDs(getBaseContext())) {
+            for (String ssid : WifiConfig.getStoredSSIDs(getFilesDir())) {
                 Log.d(LOG_TAG, "Checking " + ssid + " config");
                 if (ssid.equals(activeWifiName)) {
                     Log.d(LOG_TAG, "Detected a stored Network '" + ssid + "' for auto login.");

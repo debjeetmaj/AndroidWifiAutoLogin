@@ -109,7 +109,6 @@ public class FortigateAutoAuth extends AutoAuth {
                 httpsConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
                 httpsConnection.setRequestProperty("Content-Length", String.valueOf(encodedData.length()));
 
-//                Log.d(LOG_TAG, "authenticate: encoded data: " + encodedData);
                 DataOutputStream os = new DataOutputStream(httpsConnection.getOutputStream());
                 os.writeBytes(encodedData);
                 os.flush();
@@ -131,7 +130,7 @@ public class FortigateAutoAuth extends AutoAuth {
             }
 
             p = Pattern.compile("location.href=\"(.+?)\"");
-            assert data != null;
+//            assert data != null;
             m = p.matcher(data);
             if (!m.find()) {
                 Log.e(LOG_TAG, "authenticate: keep alive url not found");
@@ -144,5 +143,5 @@ public class FortigateAutoAuth extends AutoAuth {
         return false;
     }
 
-    public int sleepTimeout() { return 2200000; } // 2200 secs TODO Make it configurable
+    public int sleepTimeout() { return 2200000; } // 2200 secs
 }

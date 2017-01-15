@@ -76,7 +76,7 @@ public class AutoLoginService extends IntentService {
 
     //Create autoAuthObj based on authUrl
     private AutoAuth createAuthObj(String authUrl) throws Exception {
-        if (authUrl.contains("/fgtauth?")) { // HACK
+        if (authUrl.contains("fgtauth")) { // HACK
             //Fortigate firewall mechanism
             return new FortigateAutoAuth(authUrl, wifiConfig.getUsername(), wifiConfig.getPassword());
         } else {
@@ -93,10 +93,8 @@ public class AutoLoginService extends IntentService {
         HttpURLConnection httpConnection = null;
         for (int i = 0; i < CONNECTION_CHECK_ATTEMPTS; ++i) {
             try {
-                // using bing.com's IP as it doesn't use https
-                // TODO: switch to something else as it may change soon(TM) (looking at samik)
-                // TODO: add this to config
-                httpConnection = (HttpURLConnection) (new URL("http://13.107.21.200")).openConnection();
+                // using example.com's IP as it doesn't use https
+                httpConnection = (HttpURLConnection) (new URL("http://example.com")).openConnection();
                 httpConnection.setRequestMethod("GET");
                 httpConnection.setRequestProperty("Content-length", "0");
                 httpConnection.setUseCaches(false);
@@ -108,7 +106,7 @@ public class AutoLoginService extends IntentService {
                 Log.d(LOG_TAG, "checkAuth: connection response: " + responseCode);
                 // see other: 303, temporary redirect: 307
                 if (responseCode != HttpURLConnection.HTTP_SEE_OTHER && responseCode != 307) {
-                    Log.d(LOG_TAG, "checkAuth: Internet is on");
+                    Log.d(LOG_TAG, "checkAuth: not being redirected; Internet is on");
                     return false;
                 }
 
@@ -211,22 +209,19 @@ public class AutoLoginService extends IntentService {
     /* loggedInStateHandler: have autoAuthObj, will keep-alive
         Initial state: LOGGED_IN
         possible transitions:
-            * START: autoAuthObj was not found; an alarm will be scheduled
+            * START: autoAuthObj was not found or authenticate failed; an alarm will be scheduled
                 (this can happen if our process gets killed and we lose our object file);
             * LOGGED_IN: authentication was successful; an alarm will be scheduled
-            * STOPPED: authentication failed, TODO: should we retry?
      */
     private void loggedInStateHandler() {
-        /* check if any stored AutoAuthObj present
-           if present load it, if not already loaded
-         */
+        /* load object from file if not present */
         if(autoAuthObj == null && autoAuthObjFile.exists())
             autoAuthObj = AutoAuth.load(autoAuthObjFile);
 
         if (autoAuthObj != null) {
             if (!autoAuthObj.authenticate()) {
-                AutoLoginService.setState(getBaseContext(),LoginState.STOPPED);
                 Log.w(LOG_TAG, "Keep alive failed");
+                AutoLoginService.setState(getBaseContext(),LoginState.START);
             } else {
                 Log.i(LOG_TAG, "Keeping alive");
                 AutoAuth.save(autoAuthObjFile, autoAuthObj);

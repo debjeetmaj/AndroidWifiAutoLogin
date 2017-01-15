@@ -18,15 +18,13 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.util.ArrayList;
-
 public class MainActivity extends AppCompatActivity {
     TextView txtView ;
     Button btnActiveWifi,btnStartService,btnStopService;
-    ArrayList<String> savedNetworks = null;
     ListView listView;
 
-    final String LOG_TAG = "AndroidAutoLogin";
+    final static String LOG_TAG = "AndroidAutoLogin";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -161,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
             if (mWifi!=null && mWifi.getType()== ConnectivityManager.TYPE_WIFI && mWifi.isConnected()) {
                 return true;
             }
-        }catch (Exception ex){}
+        }catch (Exception ignored){}
         return false;
     }
 }

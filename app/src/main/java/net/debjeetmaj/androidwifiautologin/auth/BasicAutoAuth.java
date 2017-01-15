@@ -36,13 +36,11 @@ public class BasicAutoAuth extends AutoAuth {
                 // danger mode "ON"
                 disableSSLTrustChecks();
 
-                /* TODO this thing needs to checked thoroughly */
                 httpsConnection = (HttpsURLConnection) (new URL(authUrl)).openConnection();
                 httpsConnection.setUseCaches(false);
                 httpsConnection.setRequestMethod("GET");
-                String authCred = Base64.encodeToString((username + ":" + password).getBytes(), Base64.NO_WRAP);
-//                Log.d(LOG_TAG, "authStr = " + authCred);
-                httpsConnection.setRequestProperty("Authorization", "Basic " + authCred);
+                httpsConnection.setRequestProperty("Authorization", "Basic " +
+                        Base64.encodeToString((username + ":" + password).getBytes(), Base64.NO_WRAP));
                 httpsConnection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
                 httpsConnection.connect();
 
@@ -56,6 +54,7 @@ public class BasicAutoAuth extends AutoAuth {
                         URLEncoder.encode(this.username, "UTF-8"),
                         URLEncoder.encode(this.password, "UTF-8"));
 
+                // no-proxy auth
                 httpsConnection = (HttpsURLConnection) (new URL("https://authenticate.iitk.ac.in/netaccess/loginuser.html")).openConnection();
                 httpsConnection.setDoOutput(true);
                 httpsConnection.setRequestMethod("POST");
@@ -110,6 +109,6 @@ public class BasicAutoAuth extends AutoAuth {
 
     @Override
     public int sleepTimeout() {
-        return 7000000; // "official" timeout is 2 hrs / 7200 secs
+        return 3600000; // 1 hr; "official" timeout is 2 hrs / 7200 secs
     }
 }

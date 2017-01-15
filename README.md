@@ -2,7 +2,7 @@
 
 Wifi auto login for IITK intranet.
 
-##TODO
+## TODO
 
 - [ ] check response codes in BasicAuth
 - [ ] add configuration/settings in the app
@@ -10,3 +10,6 @@ Wifi auto login for IITK intranet.
 - [ ] monitor/log activity, that monitors the Service activities
 - [ ] proxy support?
 
+## License
+
+Licensed under GPL v2. See the LICENSE file

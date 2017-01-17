@@ -120,6 +120,11 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_settings) {
             return true;
         }
+        else if(id ==R.id.action_monitor){
+            Intent intent = new Intent(getApplicationContext(),MonitorActivity.class);
+            startActivity(intent);
+            return true;
+        }
 
         return super.onOptionsItemSelected(item);
     }
